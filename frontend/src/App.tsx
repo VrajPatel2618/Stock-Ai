@@ -8,6 +8,7 @@ import Commodities from './pages/Commodities'
 import AIInsights from './pages/AIInsights'
 import Watchlist from './pages/Watchlist'
 import Portfolio from './pages/Portfolio'
+import IPOPage from './pages/IPO'
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/insights" element={<AIInsights />} />
           <Route path="/watchlist" element={<Watchlist />} />
           <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/ipo" element={<IPOPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

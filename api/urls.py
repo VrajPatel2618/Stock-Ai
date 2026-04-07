@@ -18,8 +18,13 @@ urlpatterns = [
     path('commodity/<str:symbol>', views.commodity_detail),
     path('watchlist/prices', views.watchlist_prices),
 
-    # Watchlist (auth)
+    # Watchlist & Portfolio (auth)
     path('watchlist', views.watchlist),
+    path('portfolio', views.portfolio),
+
+    # IPO
+    path('ipo', views.ipo_list),
+    path('ipo/predict', views.ipo_predict),
 
     # Sentiment & Social
     path('sentiment/<str:ticker>', views.sentiment),
