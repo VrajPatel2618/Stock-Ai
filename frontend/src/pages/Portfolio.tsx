@@ -12,14 +12,14 @@ interface Holding {
 }
 interface Summary {
   totalCost: number; totalValue: number; totalGainLoss: number
-  totalGainLossPct: number; count: number
+  totalGainLossPct: number; count: number; virtualBalance: number
 }
 
 export default function Portfolio() {
   const { token } = useAuthStore()
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [summary, setSummary] = useState<Summary | null>(null)
-  const [form, setForm] = useState({ ticker: '', shares: '', avgPrice: '' })
+  const [form, setForm] = useState({ ticker: '', action: 'BUY', shares: '', price: '' })
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -36,17 +36,17 @@ export default function Portfolio() {
 
   useEffect(() => { if (token) fetchPortfolio() }, [token])
 
-  const add = async (e: React.FormEvent) => {
+  const trade = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.ticker || !form.shares || !form.avgPrice) return setError('All fields required')
-    if (+form.shares <= 0 || +form.avgPrice <= 0) return setError('Shares and price must be positive')
+    if (!form.ticker || !form.shares || !form.price) return setError('All fields required')
+    if (+form.shares <= 0 || +form.price <= 0) return setError('Shares and price must be positive')
     setLoading(true); setError('')
     try {
-      await api.post('/portfolio', { ticker: form.ticker.toUpperCase(), shares: +form.shares, avgPrice: +form.avgPrice })
-      setForm({ ticker: '', shares: '', avgPrice: '' })
+      await api.post('/trade', { ticker: form.ticker.toUpperCase(), action: form.action, shares: +form.shares, price: +form.price })
+      setForm({ ticker: '', action: 'BUY', shares: '', price: '' })
       fetchPortfolio()
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to add position')
+      setError(err.response?.data?.error || 'Trade failed')
     }
     setLoading(false)
   }
@@ -87,46 +87,54 @@ export default function Portfolio() {
       </div>
 
       {/* Summary cards */}
-      {summary && summary.count > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {summary && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {[
+            { label: 'Virtual Cash Balance', value: `$${summary.virtualBalance?.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}`, cls: 'text-brand-400' },
             { label: 'Total Invested', value: `$${summary.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, cls: 'text-white' },
-            { label: 'Current Value', value: `$${summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, cls: 'text-white' },
+            { label: 'Portfolio Value', value: `$${summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, cls: 'text-white' },
             { label: 'Total Gain/Loss', value: `${gainSign(summary.totalGainLoss)}$${Math.abs(summary.totalGainLoss).toFixed(2)}`, cls: gainColor(summary.totalGainLoss) },
             { label: 'Return %', value: `${gainSign(summary.totalGainLossPct)}${summary.totalGainLossPct.toFixed(2)}%`, cls: gainColor(summary.totalGainLoss) },
           ].map(({ label, value, cls }) => (
             <div key={label} className="card">
               <div className="text-xs text-gray-500 mb-1">{label}</div>
-              <div className={`text-xl font-bold ${cls}`}>{value}</div>
+              <div className={`text-lg font-bold ${cls}`}>{value}</div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Add form */}
-      <form onSubmit={add} className="card space-y-4">
-        <h3 className="font-semibold">Add / Update Position</h3>
+      {/* Trade form */}
+      <form onSubmit={trade} className="card space-y-4">
+        <h3 className="font-semibold">Paper Trade Simulator</h3>
         {error && <div className="text-red-400 text-sm bg-red-500/10 px-3 py-2 rounded-lg">{error}</div>}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Ticker</label>
-            <input className="input-field" placeholder="AAPL or RELIANCE.NS" value={form.ticker}
+            <input className="input-field" placeholder="AAPL" value={form.ticker}
               onChange={(e) => setForm({ ...form, ticker: e.target.value.toUpperCase() })} />
           </div>
           <div>
-            <label className="text-xs text-gray-400 mb-1 block">Shares / Units</label>
+            <label className="text-xs text-gray-400 mb-1 block">Action</label>
+            <select className="input-field" value={form.action} onChange={(e) => setForm({ ...form, action: e.target.value })}>
+              <option value="BUY">BUY</option>
+              <option value="SELL">SELL</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 mb-1 block">Shares</label>
             <input className="input-field" type="number" min="0.001" step="any" placeholder="10"
               value={form.shares} onChange={(e) => setForm({ ...form, shares: e.target.value })} />
           </div>
           <div>
-            <label className="text-xs text-gray-400 mb-1 block">Avg Buy Price</label>
+            <label className="text-xs text-gray-400 mb-1 block">Price</label>
             <input className="input-field" type="number" min="0.01" step="any" placeholder="150.00"
-              value={form.avgPrice} onChange={(e) => setForm({ ...form, avgPrice: e.target.value })} />
+              value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
           </div>
         </div>
-        <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
-          {loading ? <RefreshCw size={15} className="animate-spin" /> : <Plus size={15} />}
-          {loading ? 'Saving…' : 'Add Position'}
+        <button type="submit" disabled={loading} className={`flex items-center gap-2 justify-center w-full py-3 rounded-xl font-medium transition-colors disabled:opacity-50 ${form.action === 'BUY' ? 'bg-brand-600 hover:bg-brand-500 text-white' : 'bg-red-600 hover:bg-red-500 text-white'}`}>
+          {loading ? <RefreshCw size={15} className="animate-spin" /> : <Briefcase size={15} />}
+          {loading ? 'Processing…' : `Execute ${form.action} Order`}
         </button>
       </form>
 

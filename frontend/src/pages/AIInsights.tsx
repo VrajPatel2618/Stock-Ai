@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   Search, Send, RefreshCw, TrendingUp, TrendingDown, Minus,
-  Newspaper, MessageCircle, Bot, User, Zap, CheckCircle, ExternalLink
+  Newspaper, MessageCircle, Bot, User, Zap, CheckCircle, ExternalLink, ChevronDown, ChevronUp
 } from 'lucide-react'
 import api from '../api/client'
 
@@ -56,14 +56,13 @@ export default function AIInsights() {
   const [ticker, setTicker] = useState('')
   const [loading, setLoading] = useState(false)
   const [sentiment, setSentiment] = useState<any>(null)
-  const [news, setNews] = useState<any[]>([])
   const [posts, setPosts] = useState<any[]>([])
-  const [tab, setTab] = useState<'news' | 'social'>('news')
+  const [showAllPosts, setShowAllPosts] = useState(false)
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'ai',
-      text: "Hello! I'm **StockAI**, your professional market analyst.\n\nI can help you with:\n• Live stock prices (ask \"price of AAPL\")\n• Market analysis & sentiment\n• Buy/sell decision frameworks\n• News & social media insights\n\nWhat would you like to know?",
+      text: "Hello! I'm **StockAI**, your professional market analyst.\n\nI can help you with:\n• Live stock prices (ask \"price of AAPL\")\n• Market analysis & sentiment\n• Buy/sell decision frameworks\n• Social media insights\n\nWhat would you like to know?",
       timestamp: new Date(),
     }
   ])
@@ -80,15 +79,13 @@ export default function AIInsights() {
   const analyze = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!ticker.trim()) return
-    setLoading(true); setSentiment(null); setNews([]); setPosts([])
+    setLoading(true); setSentiment(null); setPosts([])
     try {
-      const [sentRes, newsRes, socialRes] = await Promise.allSettled([
+      const [sentRes, socialRes] = await Promise.allSettled([
         api.get(`/sentiment/${ticker.toUpperCase()}`),
-        api.get(`/news/${ticker.toUpperCase()}`),
         api.get(`/social/${ticker.toUpperCase()}`),
       ])
       if (sentRes.status === 'fulfilled') setSentiment(sentRes.value.data)
-      if (newsRes.status === 'fulfilled') setNews(newsRes.value.data.articles || [])
       if (socialRes.status === 'fulfilled') setPosts(socialRes.value.data.posts || [])
     } catch {}
     setLoading(false)
@@ -133,7 +130,7 @@ export default function AIInsights() {
     <div className="max-w-7xl mx-auto space-y-6 h-full">
       <div>
         <h1 className="text-2xl font-bold">AI Insights</h1>
-        <p className="text-gray-400 text-sm mt-1">Sentiment analysis, live news, and AI-powered chat</p>
+        <p className="text-gray-400 text-sm mt-1">Sentiment analysis, social insights, and AI-powered chat</p>
       </div>
 
       {/* Ticker search */}
@@ -188,71 +185,59 @@ export default function AIInsights() {
       )}
 
       <div className="grid lg:grid-cols-5 gap-6">
-        {/* News & Social — 2 cols */}
-        <div className="lg:col-span-2 card flex flex-col min-h-0">
-          <div className="flex gap-2 mb-4 flex-shrink-0">
-            {(['news', 'social'] as const).map(t => (
-              <button key={t} onClick={() => setTab(t)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  tab === t ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 hover:text-white'}`}>
-                {t === 'news' ? <Newspaper size={14} /> : <MessageCircle size={14} />}
-                {t === 'news' ? `News ${news.length > 0 ? `(${news.length})` : ''}` : `Social ${posts.length > 0 ? `(${posts.length})` : ''}`}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-y-auto space-y-2 min-h-48 max-h-96">
-            {tab === 'news' && news.length === 0 && (
-              <div className="text-center py-12">
-                <Newspaper size={32} className="text-gray-700 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm">Search a ticker to load news</p>
-              </div>
-            )}
-            {tab === 'news' && news.map((a, i) => (
-              <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
-                className="flex gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium leading-snug mb-1 line-clamp-2 group-hover:text-brand-400 transition-colors">
-                    {a.title}
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <span className="truncate">{a.source}</span>
-                    <span className={`flex-shrink-0 font-medium ${
-                      a.sentiment >= 0.2 ? 'text-emerald-400' :
-                      a.sentiment <= -0.2 ? 'text-red-400' : 'text-gray-500'}`}>
-                      {a.sentiment >= 0.2 ? '↑ Positive' : a.sentiment <= -0.2 ? '↓ Negative' : '→ Neutral'}
-                    </span>
-                  </div>
+        {/* Social — 2 cols */}
+        <div className="lg:col-span-2 flex flex-col gap-6 min-h-0">
+          {/* Social */}
+          <div className="card flex flex-col flex-1 min-h-0">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <MessageCircle size={18} className="text-brand-400" /> 
+              Social {posts.length > 0 && `(${posts.length})`}
+            </h3>
+            <div className="flex-1 overflow-y-auto space-y-2 min-h-32">
+              {posts.length === 0 && (
+                <div className="text-center py-6">
+                  <MessageCircle size={28} className="text-gray-700 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">Search a ticker to load social posts</p>
                 </div>
-                <ExternalLink size={14} className="text-gray-600 flex-shrink-0 mt-0.5 group-hover:text-brand-400 transition-colors" />
-              </a>
-            ))}
-
-            {tab === 'social' && posts.length === 0 && (
-              <div className="text-center py-12">
-                <MessageCircle size={32} className="text-gray-700 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm">Search a ticker to load social posts</p>
-              </div>
-            )}
-            {tab === 'social' && posts.map((p, i) => (
-              <div key={i} className="p-3 rounded-xl bg-white/5">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                    p.source === 'reddit' ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                    {p.source}
-                  </span>
-                  {p.subreddit && <span className="text-xs text-gray-500">r/{p.subreddit}</span>}
-                  {p.sentiment !== null && (
-                    <span className={`ml-auto text-xs font-medium ${
-                      p.sentiment > 0.2 ? 'text-emerald-400' : p.sentiment < -0.2 ? 'text-red-400' : 'text-gray-500'}`}>
-                      {p.sentiment > 0.2 ? '↑' : p.sentiment < -0.2 ? '↓' : '→'} {p.sentiment?.toFixed(2)}
+              )}
+              {(showAllPosts ? posts : posts.slice(0, 3)).map((p, i) => (
+                <a key={i} href={p.url || '#'} target={p.url ? "_blank" : "_self"} rel="noopener noreferrer" 
+                   className="block p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      p.source === 'reddit' ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                      {p.source}
                     </span>
+                    {p.subreddit && <span className="text-xs text-gray-500">r/{p.subreddit}</span>}
+                    {p.sentiment !== null && (
+                      <span className={`ml-auto text-xs font-medium ${
+                        p.sentiment > 0.2 ? 'text-emerald-400' : p.sentiment < -0.2 ? 'text-red-400' : 'text-gray-500'}`}>
+                        {p.sentiment > 0.2 ? '↑' : p.sentiment < -0.2 ? '↓' : '→'} {p.sentiment?.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-300 leading-snug line-clamp-2 group-hover:text-brand-400 transition-colors">
+                    {p.title || p.content}
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-xs text-gray-600">by {p.author}</div>
+                    {p.url && <ExternalLink size={12} className="text-gray-600 group-hover:text-brand-400 transition-colors" />}
+                  </div>
+                </a>
+              ))}
+              {posts.length > 3 && (
+                <button 
+                  onClick={() => setShowAllPosts(!showAllPosts)}
+                  className="w-full py-2 mt-2 flex items-center justify-center gap-2 text-sm text-gray-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 rounded-lg"
+                >
+                  {showAllPosts ? (
+                    <><ChevronUp size={16} /> Show Less</>
+                  ) : (
+                    <><ChevronDown size={16} /> Show All ({posts.length})</>
                   )}
-                </div>
-                <div className="text-sm text-gray-300 leading-snug line-clamp-2">{p.title || p.content}</div>
-                <div className="text-xs text-gray-600 mt-1">by {p.author}</div>
-              </div>
-            ))}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

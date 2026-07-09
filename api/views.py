@@ -98,7 +98,7 @@ def predict(request):
     if not result:
         return Response({'error': f"Ticker '{ticker}' not found"}, status=404)
     stock, df, info = result
-    preds, current_price = run_forecast(df, days=days)
+    preds, current_price, feature_importance = run_forecast(df, days=days)
     ranges = calculate_ranges(current_price, preds)
     year_change = ranges['yearRange']['change']
     sentiment = 'bullish' if year_change > 10 else 'bearish' if year_change < -10 else 'neutral'
@@ -114,7 +114,38 @@ def predict(request):
         'ticker': ticker, 'predictions': preds.tolist()[:days],
         **ranges, 'confidence': confidence, 'sentiment': sentiment,
         'currentPrice': current_price, 'historicalData': historical,
+        'featureImportance': feature_importance,
     })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def backtest(request):
+    ticker = request.data.get('ticker', '').upper()
+    if not ticker:
+        return Response({'error': 'Ticker required'}, status=400)
+    
+    result = get_stock_data(ticker)
+    if not result:
+        return Response({'error': f"Ticker '{ticker}' not found"}, status=404)
+    
+    stock, df, info = result
+    
+    try:
+        from .services import run_backtest
+        backtest_result = run_backtest(df, days_back=30, forecast_window=30)
+        
+        if not backtest_result:
+            return Response({'error': 'Not enough historical data for backtesting (requires at least ~560 days).'}, status=400)
+            
+        return Response({
+            'ticker': ticker,
+            **backtest_result
+        })
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return Response({'error': str(e)}, status=500)
+
 
 
 @api_view(['GET'])
@@ -146,7 +177,7 @@ def commodity_predict(request):
     if not result:
         return Response({'error': f"Commodity '{symbol}' not found"}, status=404)
     stock, df, info = result
-    preds, current_price = run_forecast(df, days=30)
+    preds, current_price, _ = run_forecast(df, days=30)
     ranges = calculate_ranges(current_price, preds)
     history_df = df.tail(90)
     historical = [
@@ -225,6 +256,122 @@ def watchlist(request):
 
 
 # ── PORTFOLIO ─────────────────────────────────────────────────────────────────
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from .models import UserProfile, TradeHistory
+
+# A generic placeholder for the Google Client ID
+GOOGLE_CLIENT_ID = "889565597256-ja3mm4qn1hje2f2ojekfa6eqmjivhtfp.apps.googleusercontent.com"
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_auth(request):
+    token = request.data.get('token')
+    if not token:
+        return Response({'error': 'Token required'}, status=400)
+    
+    import requests
+    try:
+        # Verify the access token with Google UserInfo API
+        response = requests.get(
+            'https://www.googleapis.com/oauth2/v3/userinfo',
+            headers={'Authorization': f'Bearer {token}'}
+        )
+        if response.status_code != 200:
+            print(f"Google userinfo failed: {response.text}")
+            return Response({'error': 'Invalid Google token'}, status=401)
+            
+        idinfo = response.json()
+        email = idinfo.get('email')
+        if not email:
+            return Response({'error': 'No email provided by Google'}, status=400)
+            
+        first_name = idinfo.get('given_name', '')
+        last_name = idinfo.get('family_name', '')
+        
+        # Find or create user
+        user, created = User.objects.get_or_create(username=email, defaults={
+            'email': email,
+            'first_name': first_name,
+            'last_name': last_name
+        })
+        
+        # Ensure user profile exists for paper trading
+        UserProfile.objects.get_or_create(user=user)
+        
+        token, _ = Token.objects.get_or_create(user=user)
+        return Response({'token': token.key, 'user': {'username': user.username, 'email': user.email}})
+        
+    except Exception as e:
+        print(f"Google token verification failed: {e}")
+        return Response({'error': 'Invalid Google token'}, status=401)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def trade(request):
+    ticker = request.data.get('ticker', '').upper()
+    action = request.data.get('action', '').upper()  # BUY or SELL
+    shares = float(request.data.get('shares', 0))
+    price = float(request.data.get('price', 0))
+    
+    if not ticker or not action or shares <= 0 or price <= 0:
+        return Response({'error': 'Invalid trade parameters'}, status=400)
+        
+    user = request.user
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    total_cost = shares * price
+    
+    if action == 'BUY':
+        if profile.virtual_balance < total_cost:
+            return Response({'error': 'Insufficient virtual funds'}, status=400)
+            
+        # Deduct balance
+        profile.virtual_balance -= total_cost
+        profile.save()
+        
+        # Update holding
+        holding, created = PortfolioHolding.objects.get_or_create(
+            user=user, ticker=ticker,
+            defaults={'shares': 0, 'avg_price': 0}
+        )
+        # Calculate new average price
+        old_total = holding.shares * holding.avg_price
+        holding.shares += shares
+        holding.avg_price = (old_total + total_cost) / holding.shares
+        holding.save()
+        
+    elif action == 'SELL':
+        try:
+            holding = PortfolioHolding.objects.get(user=user, ticker=ticker)
+            if holding.shares < shares:
+                return Response({'error': 'Insufficient shares to sell'}, status=400)
+                
+            # Add to balance
+            profile.virtual_balance += total_cost
+            profile.save()
+            
+            # Update holding
+            holding.shares -= shares
+            if holding.shares == 0:
+                holding.delete()
+            else:
+                holding.save()
+        except PortfolioHolding.DoesNotExist:
+            return Response({'error': 'You do not own this stock'}, status=400)
+    else:
+        return Response({'error': 'Invalid action'}, status=400)
+        
+    # Log trade
+    trade = TradeHistory.objects.create(
+        user=user, ticker=ticker, action=action,
+        shares=shares, price=price
+    )
+    
+    return Response({
+        'message': f'Successfully {action}ed {shares} shares of {ticker}',
+        'new_balance': profile.virtual_balance
+    })
 
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([IsAuthenticated])
@@ -255,9 +402,9 @@ def portfolio(request):
                 item['gainLoss'] = None
                 item['gainLossPct'] = None
                 item['companyName'] = h.ticker
-            data.append(item)
         total_cost = sum(h['totalCost'] for h in data)
         total_value = sum(h['currentValue'] for h in data if h['currentValue'])
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
         return Response({
             'holdings': data,
             'summary': {
@@ -266,6 +413,7 @@ def portfolio(request):
                 'totalGainLoss': round(total_value - total_cost, 2),
                 'totalGainLossPct': round((total_value - total_cost) / total_cost * 100, 2) if total_cost else 0,
                 'count': len(data),
+                'virtualBalance': profile.virtual_balance
             }
         })
 

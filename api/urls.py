@@ -6,6 +6,7 @@ urlpatterns = [
     path('auth/register', views.register),
     path('auth/login', views.login_view),
     path('auth/logout', views.logout_view),
+    path('auth/google', views.google_auth),
 
     # Health
     path('health', views.health),
@@ -14,6 +15,7 @@ urlpatterns = [
     path('market/overview', views.market_overview),
     path('stock/<str:ticker>', views.stock_detail),
     path('predict', views.predict),
+    path('backtest', views.backtest),
     path('commodity/predict', views.commodity_predict),
     path('commodity/<str:symbol>', views.commodity_detail),
     path('watchlist/prices', views.watchlist_prices),
@@ -21,6 +23,7 @@ urlpatterns = [
     # Watchlist & Portfolio (auth)
     path('watchlist', views.watchlist),
     path('portfolio', views.portfolio),
+    path('trade', views.trade),
 
     # IPO
     path('ipo', views.ipo_list),

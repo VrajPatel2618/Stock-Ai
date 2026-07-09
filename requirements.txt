@@ -14,3 +14,7 @@ duckduckgo-search>=4.1
 APScheduler>=3.10
 python-dotenv>=1.0
 ollama>=0.1
+django-redis>=5.4.0
+redis>=5.0.0
+google-auth>=2.20
+google-auth-httplib2>=0.1

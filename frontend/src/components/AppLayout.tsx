@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { TrendingUp, BarChart2, Layers, Star, Briefcase, MessageSquare, LogOut, Menu, User, Rocket } from 'lucide-react'
+import { TrendingUp, BarChart2, Layers, Star, Briefcase, MessageSquare, LogOut, Menu, User, Rocket, Compass, Bitcoin } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import api from '../api/client'
 
 const nav = [
   { to: '/dashboard', icon: BarChart2, label: 'Market Analysis' },
+  { to: '/explore', icon: Compass, label: 'Explore Markets' },
   { to: '/commodities', icon: Layers, label: 'Commodities' },
+  { to: '/crypto', icon: Bitcoin, label: 'Cryptocurrency' },
   { to: '/insights', icon: MessageSquare, label: 'AI Insights' },
   { to: '/ipo', icon: Rocket, label: 'IPO Tracker' },
   { to: '/watchlist', icon: Star, label: 'Watchlist' },
