@@ -1,25 +1,8 @@
 import numpy as np
 import pandas as pd
-import torch
-import torch.nn as nn
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.ensemble import RandomForestRegressor
 import yfinance as yf
-
-
-class LSTMModel(nn.Module):
-    def __init__(self, input_dim=3, hidden_dim=32, output_dim=1, num_layers=1):
-        super().__init__()
-        self.hidden_dim = hidden_dim
-        self.num_layers = num_layers
-        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True)
-        self.fc = nn.Linear(hidden_dim, output_dim)
-
-    def forward(self, x):
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_dim)
-        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_dim)
-        out, _ = self.lstm(x, (h0, c0))
-        return self.fc(out[:, -1, :])
-
 
 def get_stock_data(ticker: str):
     try:
@@ -33,9 +16,7 @@ def get_stock_data(ticker: str):
         print(f"Error fetching {ticker}: {e}")
         return None
 
-
 def run_forecast(df, live_sentiment=0.0, days=365):
-    torch.manual_seed(42)
     np.random.seed(42)
 
     df = df.copy()
@@ -46,54 +27,64 @@ def run_forecast(df, live_sentiment=0.0, days=365):
 
     if live_sentiment != 0.0:
         df.iloc[-1, df.columns.get_loc('Sentiment')] = live_sentiment
-
-    data = df[['Close', 'Volume', 'Sentiment']].values
-    scaler = MinMaxScaler()
-    scaled = scaler.fit_transform(data)
-
-    prediction_days = 60
-    train_slice = scaled[-500:] if len(scaled) > 500 else scaled
-    x_train, y_train = [], []
-    for i in range(prediction_days, len(train_slice)):
-        x_train.append(train_slice[i - prediction_days:i])
-        y_train.append(train_slice[i, 0])
-
-    x_t = torch.tensor(np.array(x_train), dtype=torch.float32)
-    y_t = torch.tensor(np.array(y_train), dtype=torch.float32)
-
-    model = LSTMModel()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-    criterion = nn.MSELoss()
-
-    model.train()
-    for _ in range(60):
-        out = model(x_t)
-        loss = criterion(out, y_t.view(-1, 1))
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-    model.eval()
-    current_batch = torch.tensor(scaled[-prediction_days:].reshape(1, prediction_days, 3), dtype=torch.float32)
+        
+    # Create lag features for Random Forest
+    for i in range(1, 6):
+        df[f'Close_Lag_{i}'] = df['Close'].shift(i)
     
-    # Calculate XAI Feature Importance before forecasting future
-    feature_importance = get_feature_importance(model, current_batch, scaler)
+    df = df.dropna()
+
+    features = ['Volume', 'Sentiment'] + [f'Close_Lag_{i}' for i in range(1, 6)]
+    X = df[features].values
+    y = df['Close'].values
+
+    scaler_X = MinMaxScaler()
+    scaler_y = MinMaxScaler()
     
+    X_scaled = scaler_X.fit_transform(X)
+    y_scaled = scaler_y.fit_transform(y.reshape(-1, 1)).flatten()
+
+    model = RandomForestRegressor(n_estimators=50, random_state=42, n_jobs=1)
+    model.fit(X_scaled, y_scaled)
+
+    # Feature Importance
+    importances = model.feature_importances_
+    # group lag features into 'Price'
+    price_imp = sum(importances[2:])
+    vol_imp = importances[0]
+    sent_imp = importances[1]
+    
+    total = price_imp + vol_imp + sent_imp
+    if total == 0:
+        feature_importance = {'Price': 33.3, 'Volume': 33.3, 'Sentiment': 33.4}
+    else:
+        feature_importance = {
+            'Price': round((price_imp / total) * 100, 1),
+            'Volume': round((vol_imp / total) * 100, 1),
+            'Sentiment': round((sent_imp / total) * 100, 1)
+        }
+
     preds = []
+    # Auto-regressive forecasting
+    current_features = X[-1].copy()
+    
     for _ in range(days):
-        with torch.no_grad():
-            pred = model(current_batch).item()
-            preds.append(pred)
-            next_vol = current_batch[0, :, 1].mean().item()
-            next_sent = current_batch[0, :, 2].mean().item() * 0.95
-            new_val = torch.tensor([[[pred, next_vol, next_sent]]], dtype=torch.float32)
-            current_batch = torch.cat((current_batch[:, 1:, :], new_val), dim=1)
+        curr_scaled = scaler_X.transform([current_features])
+        pred_scaled = model.predict(curr_scaled)[0]
+        pred = scaler_y.inverse_transform([[pred_scaled]])[0][0]
+        preds.append(pred)
+        
+        # Shift lags
+        for i in range(4, 0, -1):
+            current_features[2+i] = current_features[2+i-1] # Shift lags
+        current_features[2] = pred # Close_Lag_1 becomes the new prediction
+        
+        # Keep volume/sentiment roughly constant or mean reverting
+        current_features[0] = current_features[0] # Volume
+        current_features[1] = current_features[1] * 0.95 # Decay sentiment
 
-    dummy = np.zeros((len(preds), 3))
-    dummy[:, 0] = preds
-    flat = scaler.inverse_transform(dummy)[:, 0]
     current_price = float(df['Close'].iloc[-1])
-    return flat, current_price, feature_importance
+    return np.array(preds), current_price, feature_importance
 
 
 def calculate_ranges(current_price, preds):
@@ -109,48 +100,15 @@ def calculate_ranges(current_price, preds):
         'yearRange': r(preds[364] if len(preds) > 364 else preds[-1], 0.15),
     }
 
-
 def get_feature_importance(model, current_batch, scaler):
-    """
-    Explainable AI (XAI) using Permutation Importance.
-    Measures how much the prediction changes when a specific feature is zeroed out.
-    """
-    model.eval()
-    with torch.no_grad():
-        baseline_pred = model(current_batch).item()
-        
-        importances = {}
-        features = ['Price', 'Volume', 'Sentiment']
-        
-        for i, feature in enumerate(features):
-            # Create a copy and zero out the feature across the entire 60-day window
-            permuted_batch = current_batch.clone()
-            permuted_batch[0, :, i] = 0.0
-            
-            # Get new prediction
-            new_pred = model(permuted_batch).item()
-            
-            # Importance is absolute difference from baseline
-            importances[feature] = abs(baseline_pred - new_pred)
-            
-        # Normalize to percentages
-        total_importance = sum(importances.values())
-        if total_importance == 0:
-            return {'Price': 33.3, 'Volume': 33.3, 'Sentiment': 33.4}
-            
-        normalized = {k: round((v / total_importance) * 100, 1) for k, v in importances.items()}
-        return normalized
-
+    # This was a PyTorch specific function. 
+    # It's now calculated directly in run_forecast for sklearn.
+    pass
 
 def run_backtest(df, days_back=30, forecast_window=30):
-    """
-    Runs a backtest by training on data up to (today - days_back).
-    Then predicts the next forecast_window days and compares to actual data.
-    """
-    if len(df) < 500 + days_back + forecast_window:
+    if len(df) < 100 + days_back + forecast_window:
         return None
         
-    torch.manual_seed(42)
     np.random.seed(42)
 
     df = df.copy()
@@ -159,73 +117,59 @@ def run_backtest(df, days_back=30, forecast_window=30):
     df['Sentiment'] = df['Returns'].rolling(5).mean() * 10
     df['Sentiment'] = df['Sentiment'].fillna(0).clip(-1, 1)
 
-    data = df[['Close', 'Volume', 'Sentiment']].values
-    scaler = MinMaxScaler()
-    scaled = scaler.fit_transform(data)
+    for i in range(1, 6):
+        df[f'Close_Lag_{i}'] = df['Close'].shift(i)
     
+    df = df.dropna()
+
+    features = ['Volume', 'Sentiment'] + [f'Close_Lag_{i}' for i in range(1, 6)]
+    X = df[features].values
+    y = df['Close'].values
+
     # Split data at the backtest point
-    cutoff_idx = len(scaled) - days_back
-    train_scaled = scaled[:cutoff_idx]
+    cutoff_idx = len(X) - days_back
+    X_train = X[:cutoff_idx]
+    y_train = y[:cutoff_idx]
     
-    # Train the model
-    prediction_days = 60
-    train_slice = train_scaled[-500:] if len(train_scaled) > 500 else train_scaled
+    scaler_X = MinMaxScaler()
+    scaler_y = MinMaxScaler()
     
-    x_train, y_train = [], []
-    for i in range(prediction_days, len(train_slice)):
-        x_train.append(train_slice[i - prediction_days:i])
-        y_train.append(train_slice[i, 0])
-
-    x_t = torch.tensor(np.array(x_train), dtype=torch.float32)
-    y_t = torch.tensor(np.array(y_train), dtype=torch.float32)
-
-    model = LSTMModel()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-    criterion = nn.MSELoss()
-
-    model.train()
-    for _ in range(60):
-        out = model(x_t)
-        loss = criterion(out, y_t.view(-1, 1))
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+    X_train_scaled = scaler_X.fit_transform(X_train)
+    y_train_scaled = scaler_y.fit_transform(y_train.reshape(-1, 1)).flatten()
+    
+    model = RandomForestRegressor(n_estimators=50, random_state=42, n_jobs=1)
+    model.fit(X_train_scaled, y_train_scaled)
 
     # Forecast
-    model.eval()
-    current_batch = torch.tensor(train_scaled[-prediction_days:].reshape(1, prediction_days, 3), dtype=torch.float32)
+    current_features = X_train[-1].copy()
     preds = []
     
     for _ in range(forecast_window):
-        with torch.no_grad():
-            pred = model(current_batch).item()
-            preds.append(pred)
-            next_vol = current_batch[0, :, 1].mean().item()
-            next_sent = current_batch[0, :, 2].mean().item() * 0.95
-            new_val = torch.tensor([[[pred, next_vol, next_sent]]], dtype=torch.float32)
-            current_batch = torch.cat((current_batch[:, 1:, :], new_val), dim=1)
-
-    # Inverse transform
-    dummy = np.zeros((len(preds), 3))
-    dummy[:, 0] = preds
-    flat_preds = scaler.inverse_transform(dummy)[:, 0]
+        curr_scaled = scaler_X.transform([current_features])
+        pred_scaled = model.predict(curr_scaled)[0]
+        pred = scaler_y.inverse_transform([[pred_scaled]])[0][0]
+        preds.append(pred)
+        
+        # Shift lags
+        for i in range(4, 0, -1):
+            current_features[2+i] = current_features[2+i-1]
+        current_features[2] = pred
+        current_features[1] = current_features[1] * 0.95 
+        
+    actual_data = y[cutoff_idx:cutoff_idx + forecast_window]
     
-    # Get actuals for the forecast window
-    actual_data = data[cutoff_idx:cutoff_idx + forecast_window, 0]
+    if len(actual_data) < forecast_window:
+        preds = preds[:len(actual_data)]
     
-    # Calculate RMSE
-    rmse = float(np.sqrt(np.mean((flat_preds - actual_data) ** 2)))
-    
-    # Calculate Accuracy Percentage (heuristic based on MAPE)
-    mape = np.mean(np.abs((actual_data - flat_preds) / actual_data))
+    rmse = float(np.sqrt(np.mean((np.array(preds) - actual_data) ** 2)))
+    mape = np.mean(np.abs((actual_data - np.array(preds)) / actual_data))
     accuracy = max(0.0, min(100.0, (1 - mape) * 100))
     
-    # Prepare dates
-    dates = df.index[cutoff_idx:cutoff_idx + forecast_window].strftime('%Y-%m-%d').tolist()
+    dates = df.index[cutoff_idx:cutoff_idx + len(actual_data)].strftime('%Y-%m-%d').tolist()
     
     return {
         'dates': dates,
-        'predicted': flat_preds.tolist(),
+        'predicted': preds,
         'actual': actual_data.tolist(),
         'rmse': round(rmse, 2),
         'accuracy': round(accuracy, 1)
