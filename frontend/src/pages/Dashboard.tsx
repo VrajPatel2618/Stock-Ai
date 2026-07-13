@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Search, TrendingUp, TrendingDown, Minus, RefreshCw, Activity, Zap } from 'lucide-react'
+import { Search, TrendingUp, TrendingDown, Minus, RefreshCw, Activity } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend, ComposedChart, Bar } from 'recharts'
 import api from '../api/client'
 
@@ -267,24 +267,6 @@ export default function Dashboard() {
               <RangeRow label="1 Year" data={result.yearRange} sym={sym} />
             </div>
 
-            {/* AI Reasoning (XAI) */}
-            {result.featureImportance && (
-              <div className="card lg:col-span-3">
-                <h3 className="font-semibold mb-4 flex items-center gap-2"><Zap size={18} className="text-amber-400" /> Explainable AI (XAI): Prediction Drivers</h3>
-                <p className="text-sm text-gray-400 mb-4">Relative importance of features in driving the AI's prediction for {result.ticker}:</p>
-                <div className="flex flex-col md:flex-row gap-4 h-8 w-full bg-white/5 rounded-full overflow-hidden">
-                  <div className="bg-blue-500 h-full flex items-center justify-center text-xs font-bold text-white transition-all duration-1000" style={{ width: `${result.featureImportance.Price}%` }}>
-                    Price ({result.featureImportance.Price}%)
-                  </div>
-                  <div className="bg-indigo-500 h-full flex items-center justify-center text-xs font-bold text-white transition-all duration-1000" style={{ width: `${result.featureImportance.Volume}%` }}>
-                    Volume ({result.featureImportance.Volume}%)
-                  </div>
-                  <div className="bg-purple-500 h-full flex items-center justify-center text-xs font-bold text-white transition-all duration-1000" style={{ width: `${result.featureImportance.Sentiment}%` }}>
-                    Sentiment ({result.featureImportance.Sentiment}%)
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Backtesting Engine */}
             <div className="card lg:col-span-3">
