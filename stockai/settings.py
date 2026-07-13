@@ -90,13 +90,8 @@ REST_FRAMEWORK = {
     ],
 }
 
-# CORS
-_frontend_url = os.getenv('FRONTEND_URL', '')
-if DEBUG or not _frontend_url:
-    CORS_ALLOW_ALL_ORIGINS = True
-else:
-    CORS_ALLOW_ALL_ORIGINS = False
-    CORS_ALLOWED_ORIGINS = [u.strip() for u in _frontend_url.split(',') if u.strip()]
+# CORS — allow all origins (tighten after deployment is stable)
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 # Ollama
