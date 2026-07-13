@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Briefcase, RefreshCw, LogIn } from 'lucide-react'
+import { Trash2, Briefcase, RefreshCw, LogIn } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
 import { useAuthStore } from '../store/authStore'

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   Search, Send, RefreshCw, TrendingUp, TrendingDown, Minus,
-  Newspaper, MessageCircle, Bot, User, Zap, CheckCircle, ExternalLink, ChevronDown, ChevronUp
+  MessageCircle, Bot, User, Zap, CheckCircle, ExternalLink, ChevronDown, ChevronUp
 } from 'lucide-react'
 import api from '../api/client'
 

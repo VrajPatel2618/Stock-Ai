@@ -243,13 +243,14 @@ export default function Dashboard() {
                     <Tooltip
                       contentStyle={{ background: '#111827', border: '1px solid #ffffff15', borderRadius: 12 }}
                       labelStyle={{ color: '#9ca3af' }}
-                      formatter={(v: any, name: string, props: any) => {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formatter={((v: any, name: any, props: any) => {
                         if (name === 'OHLC') {
                           const { open, high, low, close } = props.payload;
                           return [`O: ${sym}${open.toFixed(2)} H: ${sym}${high.toFixed(2)} L: ${sym}${low.toFixed(2)} C: ${sym}${close.toFixed(2)}`, ''];
                         }
                         return [v, name];
-                      }}
+                      }) as any}
                     />
                     <Bar dataKey={(d) => [d.low, d.high]} shape={<Candlestick />} name="OHLC" />
                   </ComposedChart>
