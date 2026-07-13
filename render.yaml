@@ -2,8 +2,9 @@ services:
   - type: web
     name: stock-ai-backend
     runtime: python
-    buildCommand: "pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu"
-    startCommand: "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn stockai.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
+    buildCommand: "pip install -r requirements.txt"
+    preDeployCommand: "python manage.py migrate && python manage.py collectstatic --noinput"
+    startCommand: "gunicorn stockai.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
