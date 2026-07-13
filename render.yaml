@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: stock-ai-backend
+    runtime: python
+    buildCommand: "pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu"
+    startCommand: "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn stockai.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stock-ai-db
+          property: connectionString
+      - key: FRONTEND_URL
+        value: "https://stock-ai.vercel.app"   # ← update after Vercel deploy
+      - key: OLLAMA_HOST
+        value: ""
+      - key: OLLAMA_MODEL
+        value: "llama3.2"
+
+databases:
+  - name: stock-ai-db
+    databaseName: stockai
+    user: stockai
