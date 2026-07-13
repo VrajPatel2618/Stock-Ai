@@ -263,7 +263,10 @@ class MockNewsSearchClient:
 
 
 import os
-from googleapiclient.discovery import build
+try:
+    from googleapiclient.discovery import build as _google_build
+except ImportError:
+    _google_build = None
 
 
 class GoogleNewsSearchClient(NewsSearchClient):
@@ -277,7 +280,9 @@ class GoogleNewsSearchClient(NewsSearchClient):
             raise ValueError(
                 "Google API credentials missing. Set GOOGLE_API_KEY and GOOGLE_CSE_ID in .env"
             )
-        self.service = build("customsearch", "v1", developerKey=self.api_key)
+        if _google_build is None:
+            raise ImportError("google-api-python-client is not installed. Run: pip install google-api-python-client")
+        self.service = _google_build("customsearch", "v1", developerKey=self.api_key)
 
     def search_news(
         self, query: str, max_results: int = 10, timelimit: str = "w"
