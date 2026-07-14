@@ -11,15 +11,35 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from google import genai
 from google.genai import types
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 
-load_dotenv()
+# Load .env file — override=True ensures .env wins over stale shell vars
+load_dotenv(override=True)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip()
 
-# Configure SDK client once at import time
-_gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+# Lazy client — created on first use so env vars are always fresh
+_gemini_client = None
+
+
+def _get_gemini_client():
+    """Return a cached Gemini client, initializing it on first call."""
+    global _gemini_client, GEMINI_API_KEY
+    if _gemini_client is not None:
+        return _gemini_client
+    # Re-read key in case it was set after module import (e.g. Render env inject)
+    key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not key:
+        return None
+    try:
+        _gemini_client = genai.Client(api_key=key)
+        GEMINI_API_KEY = key
+        print(f"✓ Gemini client initialized. Model: {GEMINI_MODEL}")
+        return _gemini_client
+    except Exception as e:
+        print(f"✗ Gemini client init failed: {e}")
+        return None
 
 # Conversational system prompt — explicitly forbids raw JSON in chat
 SYSTEM_PROMPT = """You are StockAI, a professional stock market analyst assistant built into a trading platform.
@@ -39,11 +59,12 @@ Keep responses under 200 words unless a detailed breakdown is requested."""
 
 def _gemini_chat(prompt: str, system: str = SYSTEM_PROMPT) -> Optional[str]:
     """Call Gemini API using the official google-genai SDK."""
-    if not _gemini_client:
-        print("⚠ GEMINI_API_KEY not set — Gemini unavailable")
+    client = _get_gemini_client()
+    if not client:
+        print("⚠ Gemini unavailable — GEMINI_API_KEY not set or client failed")
         return None
     try:
-        response = _gemini_client.models.generate_content(
+        response = client.models.generate_content(
             model=GEMINI_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(
@@ -62,8 +83,8 @@ def _gemini_chat(prompt: str, system: str = SYSTEM_PROMPT) -> Optional[str]:
 
 
 def _is_gemini_available() -> bool:
-    """Check if Gemini SDK client is initialized."""
-    return _gemini_client is not None
+    """Check if Gemini client can be obtained."""
+    return _get_gemini_client() is not None
 
 
 def _vader_sentiment(text: str) -> float:
@@ -371,18 +392,19 @@ class OllamaAnalyzer:
     """
 
     def __init__(self):
-        self._available = _is_gemini_available()
-        if self._available:
-            print(f"✓ Gemini AI connected. Model: {GEMINI_MODEL}")
+        # Don't cache availability at init — check dynamically each call
+        key_set = bool(os.getenv("GEMINI_API_KEY", "").strip())
+        if key_set:
+            print(f"✓ Gemini AI ready. Model: {GEMINI_MODEL}")
         else:
-            print("⚠ Gemini API key not set — VADER fallback active")
+            print("⚠ GEMINI_API_KEY not set — VADER fallback active")
 
     @property
     def model(self) -> str:
-        return GEMINI_MODEL if self._available else "vader_fallback"
+        return GEMINI_MODEL if _is_gemini_available() else "vader_fallback"
 
     def is_available(self) -> bool:
-        return self._available
+        return _is_gemini_available()
 
     def chat(self, message: str, context: Optional[str] = None) -> str:
         ticker_from_context = ""
