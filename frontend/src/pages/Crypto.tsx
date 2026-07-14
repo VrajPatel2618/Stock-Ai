@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Search, Bitcoin, Wallet, Zap } from 'lucide-react'
-import { TickerSearch } from '../components/TickerSearch'
 
 const CRYPTO_MARKETS = [
   {
@@ -100,11 +99,13 @@ export default function Crypto() {
         </div>
         
         <form onSubmit={handleSearch} className="relative w-full md:w-96">
-          <TickerSearch 
-            value={query} 
-            onChange={setQuery} 
-            className="w-full" 
-            placeholder="Search crypto (e.g. BTC-USD)..."
+          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+          <input 
+            type="text" 
+            placeholder="Search crypto (e.g. BTC-USD)..." 
+            className="input-field pl-10 w-full bg-brand-950/20 border-brand-500/20 focus:border-brand-500/50"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
           />
         </form>
       </div>

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Trash2, Briefcase, RefreshCw, LogIn } from 'lucide-react'
+import { Briefcase, RefreshCw, Trash2, LogIn } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
+import StockSearchAutocomplete from '../components/StockSearchAutocomplete'
 import { useAuthStore } from '../store/authStore'
-import { TickerSearch } from '../components/TickerSearch'
 
 interface Holding {
   id: number; ticker: string; shares: number; avg_price: number
@@ -112,9 +112,10 @@ export default function Portfolio() {
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Ticker</label>
-            <TickerSearch 
-              value={form.ticker} 
-              onChange={(val) => setForm({ ...form, ticker: val })} 
+            <StockSearchAutocomplete
+              value={form.ticker}
+              onChange={(val) => setForm({ ...form, ticker: val.toUpperCase() })}
+              onSelect={(t) => setForm({ ...form, ticker: t })}
               placeholder="AAPL"
             />
           </div>

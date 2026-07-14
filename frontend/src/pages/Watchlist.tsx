@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react'
+import { Trash2, TrendingUp, TrendingDown, RefreshCw, Plus } from 'lucide-react'
 import api from '../api/client'
+import StockSearchAutocomplete from '../components/StockSearchAutocomplete'
 import { useAuthStore } from '../store/authStore'
 import { Link } from 'react-router-dom'
-import { TickerSearch } from '../components/TickerSearch'
 
 export default function Watchlist() {
   const { token } = useAuthStore()
@@ -78,12 +78,14 @@ export default function Watchlist() {
       </div>
 
       <form onSubmit={add} className="flex gap-3">
-        <TickerSearch 
-          value={newTicker} 
-          onChange={setNewTicker} 
-          className="flex-1 max-w-xs" 
-          placeholder="Add ticker (e.g. NVDA)"
-        />
+        <div className="flex-1 max-w-xs">
+          <StockSearchAutocomplete
+            value={newTicker}
+            onChange={(val) => setNewTicker(val.toUpperCase())}
+            onSelect={(t) => setNewTicker(t)}
+            placeholder="Add ticker (e.g. NVDA)"
+          />
+        </div>
         <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
           <Plus size={16} /> Add
         </button>

@@ -884,31 +884,50 @@ def analyze_ticker(request, ticker):
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
-def search_tickers(request):
+def search_stocks(request):
     import requests
-    query = request.GET.get('q', '').strip()
+    query = request.GET.get('q', '')
     if not query:
         return Response([])
     try:
         url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}&quotesCount=6&newsCount=0"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-        response = requests.get(url, headers=headers, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            quotes = data.get('quotes', [])
-            results = []
-            for q in quotes:
-                if 'symbol' in q and 'shortname' in q:
-                    results.append({
-                        'symbol': q['symbol'],
-                        'name': q['shortname'],
-                        'exchange': q.get('exchange', ''),
-                        'type': q.get('quoteType', 'EQUITY')
-                    })
-            return Response(results)
-        return Response([])
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers)
+        data = response.json()
+        quotes = data.get('quotes', [])
+        
+        results = []
+        for q in quotes:
+            if 'symbol' in q and 'shortname' in q:
+                results.append({
+                    'symbol': q['symbol'],
+                    'name': q.get('longname', q['shortname']),
+                    'type': q.get('quoteType', 'EQUITY'),
+                    'exchange': q.get('exchDisp', '')
+                })
+        return Response(results)
     except Exception as e:
-        print(f"Search API error: {e}")
-        return Response([])
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def similar_stocks(request, ticker):
+    import requests
+    try:
+        url = f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{ticker.upper()}"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers)
+        data = response.json()
+        results = data.get('finance', {}).get('result', [])
+        if not results:
+            return Response([])
+        
+        recs = results[0].get('recommendedSymbols', [])
+        symbols = [r['symbol'] for r in recs][:5]
+        return Response(symbols)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)

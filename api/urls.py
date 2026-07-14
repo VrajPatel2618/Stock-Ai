@@ -35,5 +35,6 @@ urlpatterns = [
     path('news/<str:ticker>', views.news),
     path('analyze/<str:ticker>', views.analyze_ticker),
     path('chat', views.chat),
-    path('search', views.search_tickers),
+    path('search', views.search_stocks),
+    path('similar/<str:ticker>', views.similar_stocks),
 ]
