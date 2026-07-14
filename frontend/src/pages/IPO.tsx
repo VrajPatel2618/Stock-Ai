@@ -102,6 +102,7 @@ export default function IPOPage() {
   const [prediction, setPrediction] = useState<Prediction | null>(null)
   const [predLoading, setPredLoading] = useState(false)
   const [filter, setFilter] = useState('All')
+  const [showLimit, setShowLimit] = useState(5)
 
   const fetchIPOs = async (r: string) => {
     setLoading(true); setIpos([]); setSelected(null); setPrediction(null)
@@ -134,6 +135,7 @@ export default function IPOPage() {
 
   const statuses = ['All', ...Array.from(new Set(ipos.map(i => i.status)))]
   const filtered = filter === 'All' ? ipos : ipos.filter(i => i.status === filter)
+  const displayed = showLimit === 0 ? filtered : filtered.slice(0, showLimit)
 
   const recBg = (s: string) => s === 'bullish' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
     : s === 'bearish' ? 'bg-red-500/10 border-red-500/20 text-red-400'
@@ -180,6 +182,18 @@ export default function IPOPage() {
               className="btn-ghost text-xs flex items-center gap-1.5">
               <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
             </button>
+            {/* Show limit dropdown */}
+            <select
+              value={showLimit}
+              onChange={e => setShowLimit(Number(e.target.value))}
+              className="text-xs bg-white/5 border border-white/10 text-gray-300 rounded-lg px-2 py-1 hover:border-white/20 transition-all cursor-pointer"
+              style={{ backgroundColor: '#1a1f2e' }}
+            >
+              <option value={5}  style={{ backgroundColor: '#1a1f2e' }}>Top 5</option>
+              <option value={10} style={{ backgroundColor: '#1a1f2e' }}>Top 10</option>
+              <option value={20} style={{ backgroundColor: '#1a1f2e' }}>Top 20</option>
+              <option value={0}  style={{ backgroundColor: '#1a1f2e' }}>All</option>
+            </select>
           </div>
 
           {loading && (
@@ -198,7 +212,7 @@ export default function IPOPage() {
           )}
 
           <div className="space-y-2">
-            {filtered.map((ipo, i) => (
+            {displayed.map((ipo, i) => (
               <button key={i} onClick={() => { setSelected(ipo); setPrediction(null); setIssuePrice(ipo.issuePrice ? String(ipo.issuePrice) : '') }}
                 className={`w-full text-left card py-4 hover:border-brand-500/30 transition-all ${
                   selected?.company === ipo.company && selected?.date === ipo.date ? 'border-brand-500/50 bg-brand-600/5' : ''}`}>
@@ -226,6 +240,26 @@ export default function IPOPage() {
               </button>
             ))}
           </div>
+          {/* Show more / show less footer */}
+          {filtered.length > 5 && (
+            <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
+              <span>Showing {displayed.length} of {filtered.length} IPOs</span>
+              <div className="flex gap-2">
+                {showLimit !== 0 && showLimit < filtered.length && (
+                  <button onClick={() => setShowLimit(l => l + 5)}
+                    className="text-brand-400 hover:text-brand-300 transition-colors">
+                    Show more
+                  </button>
+                )}
+                {showLimit !== 5 && (
+                  <button onClick={() => setShowLimit(5)}
+                    className="text-gray-600 hover:text-gray-400 transition-colors">
+                    Collapse
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Prediction panel */}
