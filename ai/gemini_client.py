@@ -9,17 +9,17 @@ import os
 import requests as _requests
 from datetime import datetime
 from typing import Dict, List, Optional
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
-# Configure SDK once at import time
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+# Configure SDK client once at import time
+_gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 # Conversational system prompt — explicitly forbids raw JSON in chat
 SYSTEM_PROMPT = """You are StockAI, a professional stock market analyst assistant built into a trading platform.
@@ -38,20 +38,20 @@ Keep responses under 200 words unless a detailed breakdown is requested."""
 
 
 def _gemini_chat(prompt: str, system: str = SYSTEM_PROMPT) -> Optional[str]:
-    """Call Gemini API using the official SDK and return text response."""
-    if not GEMINI_API_KEY:
-        print("⚠ GEMINI_API_KEY not set")
+    """Call Gemini API using the official google-genai SDK."""
+    if not _gemini_client:
+        print("⚠ GEMINI_API_KEY not set — Gemini unavailable")
         return None
     try:
-        model = genai.GenerativeModel(
-            model_name=GEMINI_MODEL,
-            system_instruction=system,
-            generation_config=genai.GenerationConfig(
+        response = _gemini_client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system,
                 temperature=0.7,
                 max_output_tokens=512,
             ),
         )
-        response = model.generate_content(prompt)
         text = response.text.strip()
         print(f"✓ Gemini responded ({len(text)} chars)")
         return text
@@ -62,8 +62,8 @@ def _gemini_chat(prompt: str, system: str = SYSTEM_PROMPT) -> Optional[str]:
 
 
 def _is_gemini_available() -> bool:
-    """Check if Gemini API key is set and reachable."""
-    return bool(GEMINI_API_KEY)
+    """Check if Gemini SDK client is initialized."""
+    return _gemini_client is not None
 
 
 def _vader_sentiment(text: str) -> float:
@@ -74,13 +74,42 @@ def _vader_sentiment(text: str) -> float:
         return 0.0
 
 
+# Minimum ticker length to avoid garbage like 'A', 'I'
+_MIN_TICKER_LEN = 2
+
+# Simple set of obviously invalid "tickers" — English words not in SKIP_WORDS
+# that still sometimes slip through (e.g. short words the user types)
+_INVALID_TICKERS = {
+    'HTTP', 'HTML', 'JSON', 'API', 'URL', 'NS', 'BSE', 'NSE', 'NYSE',
+    'ETF', 'IPO', 'GDP', 'CPI', 'FED', 'RBI', 'SEBI', 'SEC', 'USD',
+    'INR', 'EUR', 'GBP', 'YEN', 'ADR', 'EPS', 'ROE', 'ROI', 'NAV',
+    'AI', 'ML', 'IT', 'AM', 'PM', 'EST', 'IST', 'UTC',
+}
+
+
+def _looks_like_ticker(symbol: str) -> bool:
+    """Basic sanity check — reject obvious non-tickers."""
+    s = symbol.upper().split(".")[0]   # strip .NS / .BO suffix for check
+    if len(s) < _MIN_TICKER_LEN:
+        return False
+    if s in _SKIP_WORDS or s in _INVALID_TICKERS:
+        return False
+    # Must be all letters (no digits/special chars in base symbol)
+    return s.isalpha()
+
+
 def _get_live_price(ticker: str) -> Optional[Dict]:
     """Fetch live price from yfinance for use in chat responses."""
+    if not _looks_like_ticker(ticker):
+        return None
     try:
         import yfinance as yf
-        t = yf.Ticker(ticker)
-        info = t.info
-        hist = t.history(period="2d")
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            t = yf.Ticker(ticker)
+            info = t.info
+            hist = t.history(period="2d")
         if hist.empty:
             return None
         price = float(info.get("currentPrice", hist["Close"].iloc[-1]))
@@ -198,26 +227,44 @@ _SKIP_WORDS = {
 
 
 def _is_price_query(message: str) -> Optional[str]:
-    """Detect price queries and extract ticker. Returns ticker or None."""
+    """Detect price queries and extract ticker. Returns valid ticker or None."""
     import re
     msg = message.lower()
     price_words = ["price", "trading at", "current price", "stock price",
                    "how much", "worth", "value", "quote", "cost"]
     if not any(w in msg for w in price_words):
         return None
-    # Priority 1: $TICKER pattern (e.g. $AAPL)
-    match = re.search(r'\$([A-Z]{1,5})', message.upper())
+
+    # Priority 1: $TICKER pattern — e.g. $AAPL, $RELIANCE
+    match = re.search(r'\$([A-Za-z]{1,12})', message)
     if match:
-        return match.group(1)
-    # Priority 2: TICKER.XX pattern (e.g. RELIANCE.NS)
-    match = re.search(r'\b([A-Z]{1,5}\.[A-Z]{2})\b', message.upper())
+        t = match.group(1).upper()
+        if _looks_like_ticker(t):
+            return t
+
+    # Priority 2: TICKER.XX pattern — supports long Indian tickers
+    # e.g. RELIANCE.NS, BAJFINANCE.BO (up to 12 chars before dot)
+    match = re.search(r'\b([A-Za-z]{2,12}\.[A-Za-z]{2,3})\b', message)
     if match:
-        return match.group(1)
-    # Priority 3: Standalone uppercase word that looks like a ticker
-    candidates = re.findall(r'\b([A-Z]{2,5})\b', message.upper())
-    for c in candidates:
-        if c not in _SKIP_WORDS:
+        t = match.group(1).upper()
+        base = t.split(".")[0]
+        if _looks_like_ticker(base):
+            return t
+
+    # Priority 3: All-caps word that looks like a ticker (e.g. AAPL, TSLA)
+    # Only match if user explicitly capitalized it
+    caps_candidates = re.findall(r'\b([A-Z]{2,10})\b', message)
+    for c in caps_candidates:
+        if _looks_like_ticker(c):
             return c
+
+    # Priority 4: Any word that looks like a known ticker format
+    # (mixed-case last resort — avoids false positives from sentence words)
+    all_candidates = re.findall(r'\b([A-Za-z]{2,10})\b', message.upper())
+    for c in all_candidates:
+        if _looks_like_ticker(c):
+            return c
+
     return None
 
 
