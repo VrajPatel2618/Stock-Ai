@@ -28,12 +28,12 @@ export default function AppLayout() {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-4 py-5 border-b border-white/5">
+      <Link to="/dashboard" className="flex items-center gap-2 px-4 py-5 border-b border-white/5 hover:opacity-80 transition-opacity">
         <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center flex-shrink-0">
           <TrendingUp size={16} className="text-white" />
         </div>
         <span className="font-bold text-lg">Stock<span className="text-brand-400">.AI</span></span>
-      </div>
+      </Link>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
         {nav.map(({ to, icon: Icon, label }) => (
@@ -94,7 +94,7 @@ export default function AppLayout() {
           <button onClick={() => setOpen(true)} className="text-gray-400 hover:text-white">
             <Menu size={22} />
           </button>
-          <span className="font-bold">Stock<span className="text-brand-400">.AI</span></span>
+          <Link to="/dashboard" className="font-bold hover:opacity-80 transition-opacity">Stock<span className="text-brand-400">.AI</span></Link>
           <div className="w-8" />
         </header>
 
