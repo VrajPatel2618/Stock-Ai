@@ -35,4 +35,5 @@ urlpatterns = [
     path('news/<str:ticker>', views.news),
     path('analyze/<str:ticker>', views.analyze_ticker),
     path('chat', views.chat),
+    path('search', views.search_tickers),
 ]

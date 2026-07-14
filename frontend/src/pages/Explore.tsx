@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Globe, ArrowRight, Coins, Building2, Search } from 'lucide-react'
+import { TickerSearch } from '../components/TickerSearch'
 
 const MARKETS = [
   {
@@ -128,13 +129,11 @@ export default function Explore() {
         </div>
         
         <form onSubmit={handleSearch} className="relative w-full md:w-96">
-          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
-          <input 
-            type="text" 
-            placeholder="Search any ticker (e.g. AAPL, TCS.NS)..." 
-            className="input-field pl-10 w-full"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+          <TickerSearch 
+            value={query} 
+            onChange={setQuery} 
+            className="w-full" 
+            placeholder="Search any ticker (e.g. AAPL, TCS.NS)..."
           />
         </form>
       </div>

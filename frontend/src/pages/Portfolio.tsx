@@ -3,6 +3,7 @@ import { Trash2, Briefcase, RefreshCw, LogIn } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
 import { useAuthStore } from '../store/authStore'
+import { TickerSearch } from '../components/TickerSearch'
 
 interface Holding {
   id: number; ticker: string; shares: number; avg_price: number
@@ -111,8 +112,11 @@ export default function Portfolio() {
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Ticker</label>
-            <input className="input-field" placeholder="AAPL" value={form.ticker}
-              onChange={(e) => setForm({ ...form, ticker: e.target.value.toUpperCase() })} />
+            <TickerSearch 
+              value={form.ticker} 
+              onChange={(val) => setForm({ ...form, ticker: val })} 
+              placeholder="AAPL"
+            />
           </div>
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Action</label>

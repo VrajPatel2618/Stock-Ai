@@ -883,3 +883,32 @@ def analyze_ticker(request, ticker):
         return Response(analysis)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def search_tickers(request):
+    import requests
+    query = request.GET.get('q', '').strip()
+    if not query:
+        return Response([])
+    try:
+        url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}&quotesCount=6&newsCount=0"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        response = requests.get(url, headers=headers, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            quotes = data.get('quotes', [])
+            results = []
+            for q in quotes:
+                if 'symbol' in q and 'shortname' in q:
+                    results.append({
+                        'symbol': q['symbol'],
+                        'name': q['shortname'],
+                        'exchange': q.get('exchange', ''),
+                        'type': q.get('quoteType', 'EQUITY')
+                    })
+            return Response(results)
+        return Response([])
+    except Exception as e:
+        print(f"Search API error: {e}")
+        return Response([])

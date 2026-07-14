@@ -4,6 +4,8 @@ import {
   MessageCircle, Bot, User, Zap, CheckCircle, ExternalLink, ChevronDown, ChevronUp
 } from 'lucide-react'
 import api from '../api/client'
+import { TickerSearch } from '../components/TickerSearch'
+import MarkdownText from '../components/MarkdownText'
 
 interface ChatMessage {
   role: 'user' | 'ai'
@@ -135,11 +137,12 @@ export default function AIInsights() {
 
       {/* Ticker search */}
       <form onSubmit={analyze} className="flex gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
-          <input className="input-field pl-10" placeholder="Analyze ticker (e.g. AAPL, RELIANCE.NS)"
-            value={ticker} onChange={(e) => setTicker(e.target.value.toUpperCase())} />
-        </div>
+        <TickerSearch 
+          value={ticker} 
+          onChange={setTicker} 
+          className="flex-1 max-w-md" 
+          placeholder="Analyze ticker (e.g. AAPL, RELIANCE.NS)"
+        />
         <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
           {loading ? <RefreshCw size={16} className="animate-spin" /> : <Search size={16} />}
           {loading ? 'Analyzing…' : 'Analyze'}

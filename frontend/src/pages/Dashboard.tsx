@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Search, TrendingUp, TrendingDown, Minus, RefreshCw, Activity } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend, ComposedChart, Bar } from 'recharts'
 import api from '../api/client'
+import { TickerSearch } from '../components/TickerSearch'
 
 // Custom Candlestick Shape for Recharts
 const Candlestick = (props: any) => {
@@ -145,15 +146,12 @@ export default function Dashboard() {
       </div>
 
       <form onSubmit={analyze} className="flex gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
-          <input
-            className="input-field pl-10"
-            placeholder="Enter ticker (e.g. AAPL, RELIANCE.NS, TSLA)"
-            value={ticker}
-            onChange={(e) => setTicker(e.target.value.toUpperCase())}
-          />
-        </div>
+        <TickerSearch 
+          value={ticker} 
+          onChange={setTicker} 
+          className="flex-1 max-w-md" 
+          placeholder="Enter ticker (e.g. AAPL, TSLA)"
+        />
         <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
           {loading ? <RefreshCw size={16} className="animate-spin" /> : <Search size={16} />}
           {loading ? 'Analyzing…' : 'Analyze'}

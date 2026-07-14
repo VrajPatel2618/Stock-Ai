@@ -3,6 +3,7 @@ import { Plus, Trash2, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react'
 import api from '../api/client'
 import { useAuthStore } from '../store/authStore'
 import { Link } from 'react-router-dom'
+import { TickerSearch } from '../components/TickerSearch'
 
 export default function Watchlist() {
   const { token } = useAuthStore()
@@ -77,8 +78,12 @@ export default function Watchlist() {
       </div>
 
       <form onSubmit={add} className="flex gap-3">
-        <input className="input-field flex-1 max-w-xs" placeholder="Add ticker (e.g. NVDA)"
-          value={newTicker} onChange={(e) => setNewTicker(e.target.value.toUpperCase())} />
+        <TickerSearch 
+          value={newTicker} 
+          onChange={setNewTicker} 
+          className="flex-1 max-w-xs" 
+          placeholder="Add ticker (e.g. NVDA)"
+        />
         <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
           <Plus size={16} /> Add
         </button>
