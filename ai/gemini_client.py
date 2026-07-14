@@ -35,10 +35,10 @@ def _get_gemini_client():
     try:
         _gemini_client = genai.Client(api_key=key)
         GEMINI_API_KEY = key
-        print(f"✓ Gemini client initialized. Model: {GEMINI_MODEL}")
+        print(f"[OK] Gemini client initialized. Model: {GEMINI_MODEL}")
         return _gemini_client
     except Exception as e:
-        print(f"✗ Gemini client init failed: {e}")
+        print(f"[FAIL] Gemini client init failed: {e}")
         return None
 
 # Conversational system prompt — explicitly forbids raw JSON in chat
@@ -61,7 +61,7 @@ def _gemini_chat(prompt: str, system: str = SYSTEM_PROMPT) -> Optional[str]:
     """Call Gemini API using the official google-genai SDK."""
     client = _get_gemini_client()
     if not client:
-        print("⚠ Gemini unavailable — GEMINI_API_KEY not set or client failed")
+        print("[WARN] Gemini unavailable - GEMINI_API_KEY not set or client failed")
         return None
     try:
         response = client.models.generate_content(
@@ -74,10 +74,10 @@ def _gemini_chat(prompt: str, system: str = SYSTEM_PROMPT) -> Optional[str]:
             ),
         )
         text = response.text.strip()
-        print(f"✓ Gemini responded ({len(text)} chars)")
+        print(f"[OK] Gemini responded ({len(text)} chars)")
         return text
     except Exception as e:
-        print(f"✗ Gemini API error: {e}")
+        print(f"[FAIL] Gemini API error: {e}")
         return None
 
 
@@ -395,9 +395,9 @@ class OllamaAnalyzer:
         # Don't cache availability at init — check dynamically each call
         key_set = bool(os.getenv("GEMINI_API_KEY", "").strip())
         if key_set:
-            print(f"✓ Gemini AI ready. Model: {GEMINI_MODEL}")
+            print(f"[OK] Gemini AI ready. Model: {GEMINI_MODEL}")
         else:
-            print("⚠ GEMINI_API_KEY not set — VADER fallback active")
+            print("[WARN] GEMINI_API_KEY not set - VADER fallback active")
 
     @property
     def model(self) -> str:
