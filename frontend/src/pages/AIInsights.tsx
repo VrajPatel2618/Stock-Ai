@@ -242,7 +242,7 @@ export default function AIInsights() {
         </div>
 
         {/* AI Chat — 3 cols */}
-        <div className="lg:col-span-3 card flex flex-col" style={{ minHeight: '520px' }}>
+        <div className="lg:col-span-3 card flex flex-col" style={{ height: '600px' }}>
           {/* Chat header */}
           <div className="flex items-center justify-between pb-4 border-b border-white/5 flex-shrink-0">
             <div className="flex items-center gap-3">
