@@ -5,9 +5,6 @@ import api from '../api/client'
 const REGIONS = [
   { id: 'us',     label: '🇺🇸 USA',    desc: 'Nasdaq / NYSE' },
   { id: 'india',  label: '🇮🇳 India',  desc: 'NSE / BSE' },
-  { id: 'uk',     label: '🇬🇧 UK',     desc: 'LSE' },
-  { id: 'europe', label: '🇪🇺 Europe', desc: 'Euronext' },
-  { id: 'asia',   label: '🌏 Asia',    desc: 'HK / Tokyo / SGX' },
 ]
 
 const SECTORS: Record<string, string[]> = {
@@ -23,21 +20,6 @@ const SECTORS: Record<string, string[]> = {
     'Infrastructure', 'Real Estate', 'Energy', 'Oil & Gas', 'Renewables',
     'Retail', 'E-Commerce', 'Manufacturing', 'Defence', 'Agri & Food',
     'Chemicals', 'Logistics', 'Media & Entertainment', 'Telecom',
-  ],
-  uk: [
-    'Technology', 'Fintech', 'Healthcare', 'Biotechnology', 'Energy',
-    'Clean Energy', 'Finance', 'Consumer', 'Industrials', 'Real Estate',
-    'Mining & Resources', 'Defence', 'Retail', 'Media',
-  ],
-  europe: [
-    'Technology', 'Automotive', 'Healthcare', 'Pharmaceuticals', 'Energy',
-    'Clean Energy', 'Finance', 'Consumer', 'Industrials', 'Luxury Goods',
-    'Food & Beverage', 'Chemicals', 'Defence', 'Real Estate',
-  ],
-  asia: [
-    'Technology', 'Semiconductor', 'E-Commerce', 'Fintech', 'Healthcare',
-    'Consumer', 'Energy', 'Manufacturing', 'Real Estate',
-    'Logistics', 'Gaming', 'Telecom', 'Defence',
   ],
 }
 
