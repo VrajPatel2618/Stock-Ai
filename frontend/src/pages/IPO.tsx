@@ -11,11 +11,34 @@ const REGIONS = [
 ]
 
 const SECTORS: Record<string, string[]> = {
-  us:     ['Technology', 'Finance', 'Healthcare', 'Energy', 'Consumer', 'Auto'],
-  india:  ['India Tech', 'India Finance', 'India Consumer', 'Technology', 'Energy'],
-  uk:     ['Technology', 'Finance', 'Healthcare', 'Energy', 'Consumer'],
-  europe: ['Technology', 'Finance', 'Healthcare', 'Energy', 'Consumer'],
-  asia:   ['Technology', 'Finance', 'Healthcare', 'Energy', 'Consumer'],
+  us: [
+    'Technology', 'Artificial Intelligence', 'Fintech', 'Healthcare', 'Biotechnology',
+    'Energy', 'Clean Energy', 'Consumer Discretionary', 'Consumer Staples',
+    'Industrials', 'Real Estate', 'Materials', 'Utilities', 'Communication Services',
+    'Aerospace & Defense', 'Automotive', 'Retail', 'SaaS', 'Cybersecurity',
+  ],
+  india: [
+    'Technology', 'Fintech', 'Banking & Finance', 'Insurance', 'NBFC',
+    'Healthcare', 'Pharmaceuticals', 'Consumer Goods', 'FMCG',
+    'Infrastructure', 'Real Estate', 'Energy', 'Oil & Gas', 'Renewables',
+    'Retail', 'E-Commerce', 'Manufacturing', 'Defence', 'Agri & Food',
+    'Chemicals', 'Logistics', 'Media & Entertainment', 'Telecom',
+  ],
+  uk: [
+    'Technology', 'Fintech', 'Healthcare', 'Biotechnology', 'Energy',
+    'Clean Energy', 'Finance', 'Consumer', 'Industrials', 'Real Estate',
+    'Mining & Resources', 'Defence', 'Retail', 'Media',
+  ],
+  europe: [
+    'Technology', 'Automotive', 'Healthcare', 'Pharmaceuticals', 'Energy',
+    'Clean Energy', 'Finance', 'Consumer', 'Industrials', 'Luxury Goods',
+    'Food & Beverage', 'Chemicals', 'Defence', 'Real Estate',
+  ],
+  asia: [
+    'Technology', 'Semiconductor', 'E-Commerce', 'Fintech', 'Healthcare',
+    'Consumer', 'Energy', 'Manufacturing', 'Real Estate',
+    'Logistics', 'Gaming', 'Telecom', 'Defence',
+  ],
 }
 
 interface IPO {
@@ -256,8 +279,17 @@ export default function IPOPage() {
                 </h3>
                 <div>
                   <label className="text-xs text-gray-400 mb-1 block">Sector</label>
-                  <select className="input-field" value={sector} onChange={e => setSector(e.target.value)}>
-                    {(SECTORS[region] || SECTORS['us']).map(s => <option key={s} value={s}>{s}</option>)}
+                  <select
+                    className="input-field"
+                    value={sector}
+                    onChange={e => setSector(e.target.value)}
+                    style={{ backgroundColor: '#1a1f2e', color: 'white' }}
+                  >
+                    {(SECTORS[region] || SECTORS['us']).map(s => (
+                      <option key={s} value={s} style={{ backgroundColor: '#1a1f2e', color: 'white' }}>
+                        {s}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
