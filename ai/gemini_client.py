@@ -13,8 +13,9 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv, dotenv_values
 
-# Load .env file — override=True ensures .env wins over stale shell vars
-load_dotenv(override=True)
+# Load .env file — explicitly target the project root .env
+env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(dotenv_path=env_path, override=True)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip()
@@ -77,7 +78,10 @@ def _gemini_chat(prompt: str, system: str = SYSTEM_PROMPT) -> Optional[str]:
         print(f"[OK] Gemini responded ({len(text)} chars)")
         return text
     except Exception as e:
-        print(f"[FAIL] Gemini API error: {e}")
+        err_str = str(e)
+        print(f"[FAIL] Gemini API error: {err_str}")
+        if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+            return "⚠️ **Gemini API Quota Exceeded**\nYour API key has reached its free tier limit. Please generate a new key at [Google AI Studio](https://aistudio.google.com/app/apikey) and update your environment variables."
         return None
 
 
