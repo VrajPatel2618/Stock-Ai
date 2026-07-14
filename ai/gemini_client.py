@@ -224,70 +224,99 @@ def _is_price_query(message: str) -> Optional[str]:
     return None
 
 
-def _fallback_chat(message: str, ticker: str = "") -> str:
+def _rule_based_analysis(message: str, ticker: str = "") -> str:
+    """Smart rule-based responses using live data — never redirects user."""
     msg_lower = message.lower()
+    t = ticker.upper() if ticker else ""
 
-    if any(w in msg_lower for w in ["price", "trading", "how much", "worth", "quote"]):
-        t = ticker or _is_price_query(message)
-        if t:
-            data = _get_live_price(t)
+    # Price query — always try live fetch first
+    if any(w in msg_lower for w in ["price", "trading", "how much", "worth", "quote", "current"]):
+        detected = _is_price_query(message) or t
+        if detected:
+            data = _get_live_price(detected)
             if data:
                 return _format_price_response(data)
+        # Live fetch failed — give best effort answer
         return (
-            "I can look up live prices! Try asking:\n"
-            "• \"What is the price of AAPL?\"\n"
-            "• \"RELIANCE.NS current price\"\n\n"
-            "Or use the **Market Analysis** page for full predictions."
+            f"⚠️ I couldn't fetch live price data for **{detected or 'that stock'}** right now "
+            "(Yahoo Finance may be temporarily unavailable).\n\n"
+            "Please try again in a few seconds, or specify the exact ticker symbol "
+            "(e.g. `AAPL`, `RELIANCE.NS`, `TSLA`)."
         )
 
+    # Buy decision — use live data if ticker known
     if any(w in msg_lower for w in ["buy", "should i buy"]):
+        live = _get_live_price(t) if t else None
+        header = f"**{live['ticker']} — {live['name']}**\n" \
+                 f"Current Price: {live['currency']}{live['price']:.2f} " \
+                 f"({'+' if live['change'] >= 0 else ''}{live['change_pct']:.2f}%)\n\n" if live else ""
         return (
-            f"**Buy Decision Framework{' for ' + ticker.upper() if ticker else ''}:**\n\n"
-            "• Check P/E ratio vs sector average\n"
-            "• Review last 2 earnings reports\n"
-            "• Look at institutional ownership trends\n"
-            "• Assess overall market sentiment\n\n"
-            "Use the **Market Analysis** page for LSTM price predictions.\n\n"
-            "*⚠️ AI temporarily unavailable — using rule-based analysis.*"
+            f"{header}"
+            f"**Buy Considerations{' for ' + t if t else ''}:**\n\n"
+            "• 📊 Compare P/E ratio to sector average\n"
+            "• 📈 Review last 2 quarterly earnings reports\n"
+            "• 🏦 Check institutional ownership trends\n"
+            "• 📰 Monitor recent news sentiment\n"
+            "• ⚡ Consider overall market conditions\n\n"
+            "*Not financial advice. Always do your own research.*"
         )
 
+    # Sell decision — use live data if ticker known
     if any(w in msg_lower for w in ["sell", "should i sell"]):
+        live = _get_live_price(t) if t else None
+        header = f"**{live['ticker']} — {live['name']}**\n" \
+                 f"Current Price: {live['currency']}{live['price']:.2f} " \
+                 f"({'+' if live['change'] >= 0 else ''}{live['change_pct']:.2f}%)\n\n" if live else ""
         return (
-            f"**Sell Decision Framework{' for ' + ticker.upper() if ticker else ''}:**\n\n"
-            "• Has your original investment thesis changed?\n"
-            "• Is the stock significantly overvalued vs peers?\n"
-            "• Consider tax implications before selling\n"
-            "• Don't sell on short-term volatility alone\n\n"
-            "*⚠️ AI temporarily unavailable — using rule-based analysis.*"
+            f"{header}"
+            f"**Sell Considerations{' for ' + t if t else ''}:**\n\n"
+            "• 🔄 Has your original investment thesis changed?\n"
+            "• 💰 Is the stock significantly overvalued vs peers?\n"
+            "• 📉 Are fundamentals deteriorating?\n"
+            "• 🧾 Consider tax implications before selling\n"
+            "• ⚠️ Don't sell purely on short-term volatility\n\n"
+            "*Not financial advice. Always do your own research.*"
         )
 
-    if any(w in msg_lower for w in ["sentiment", "mood", "feeling", "bullish", "bearish"]):
-        return (
-            f"**Sentiment Analysis{' for ' + ticker.upper() if ticker else ''}** is available on the **AI Insights** page.\n\n"
-            "It aggregates:\n"
-            "• Reddit (r/wallstreetbets, r/stocks, r/investing)\n"
-            "• StockTwits social posts\n"
-            "• DuckDuckGo news with VADER scoring\n\n"
-            "*⚠️ AI temporarily unavailable — VADER sentiment works without it.*"
-        )
+    # Sentiment
+    if any(w in msg_lower for w in ["sentiment", "mood", "bullish", "bearish", "feeling"]):
+        live = _get_live_price(t) if t else None
+        if live:
+            direction = "📈 Bullish" if live["change"] >= 0 else "📉 Bearish"
+            return (
+                f"**{live['ticker']} Market Sentiment:**\n\n"
+                f"Today's movement: **{direction}** ({'+' if live['change'] >= 0 else ''}{live['change_pct']:.2f}%)\n"
+                f"Price: {live['currency']}{live['price']:.2f}\n"
+                f"52W Range: {live['currency']}{live['low_52w']:.2f} – {live['currency']}{live['high_52w']:.2f}\n\n"
+                "*For deep social sentiment (Reddit/StockTwits), visit AI Insights.*\n"
+                "*Not financial advice.*"
+            )
+        return "Please specify a stock ticker to get sentiment (e.g. 'AAPL sentiment' or 'TSLA bullish or bearish?')"
 
-    if any(w in msg_lower for w in ["predict", "forecast", "target", "future"]):
-        return (
-            f"**Price Forecasting{' for ' + ticker.upper() if ticker else ''}** is available on the **Market Analysis** page.\n\n"
-            "The LSTM neural network predicts:\n"
-            "• Today / 1 Week / 1 Month\n"
-            "• 6 Month / 1 Year ranges\n\n"
-            "*⚠️ AI temporarily unavailable — LSTM predictions still work.*"
-        )
+    # Forecast/predict
+    if any(w in msg_lower for w in ["predict", "forecast", "target", "future", "will"]):
+        live = _get_live_price(t) if t else None
+        if live:
+            return (
+                f"**{live['ticker']} — Current Snapshot:**\n\n"
+                f"Price: {live['currency']}{live['price']:.2f} "
+                f"({'+' if live['change'] >= 0 else ''}{live['change_pct']:.2f}% today)\n"
+                f"52W High: {live['currency']}{live['high_52w']:.2f} | "
+                f"52W Low: {live['currency']}{live['low_52w']:.2f}\n\n"
+                "⚠️ AI price prediction requires Gemini API. "
+                "LSTM model predictions are available on the Market Analysis page.\n\n"
+                "*Not financial advice.*"
+            )
+        return "Please specify a ticker for price forecasting (e.g. 'predict AAPL' or 'TSLA forecast')."
 
+    # Generic fallback — still helpful
     return (
-        "**StockAI is running in fallback mode** — Gemini AI is not connected.\n\n"
-        "What still works:\n"
-        "• 📈 LSTM price predictions (Market Analysis)\n"
-        "• 📰 News sentiment (AI Insights)\n"
-        "• 💬 Reddit/StockTwits posts (AI Insights)\n"
-        "• 💰 Live price lookup (ask me \"price of AAPL\")\n\n"
-        "To enable full AI chat, set GEMINI_API_KEY in your environment."
+        "I'm StockAI, your market analyst. I can help you with:\n\n"
+        "• 💰 **Live prices** — ask: *'price of AAPL'* or *'TSLA current price'*\n"
+        "• 📊 **Buy/Sell advice** — ask: *'should I buy MSFT?'*\n"
+        "• 📈 **Sentiment** — ask: *'is NVDA bullish?'*\n"
+        "• 🔮 **Forecasts** — ask: *'predict AAPL price'*\n\n"
+        "*Gemini AI is offline — using live data + rule-based analysis.*"
     )
 
 
@@ -312,29 +341,47 @@ class OllamaAnalyzer:
         return self._available
 
     def chat(self, message: str, context: Optional[str] = None) -> str:
-        # Always try live price lookup first
         ticker_from_context = ""
         if context and "ticker:" in context.lower():
             ticker_from_context = context.split(":")[-1].strip()
 
+        # Step 1: Always try live price lookup first for price queries
         price_ticker = _is_price_query(message) or ticker_from_context
-        if price_ticker and any(w in message.lower() for w in ["price", "trading", "how much", "worth", "quote", "current"]):
+        if price_ticker and any(w in message.lower() for w in
+                                ["price", "trading", "how much", "worth", "quote", "current"]):
             data = _get_live_price(price_ticker)
             if data:
                 return _format_price_response(data)
+            # Price fetch failed — let Gemini answer it, or rule-based
 
-        # Try Gemini
-        if not _is_gemini_available():
-            return _fallback_chat(message, ticker_from_context)
+        # Step 2: Try Gemini AI (adds context with live data if ticker known)
+        if _is_gemini_available():
+            # Enrich prompt with live data when possible
+            live_context = ""
+            detected_ticker = price_ticker or ticker_from_context
+            if detected_ticker:
+                live = _get_live_price(detected_ticker)
+                if live:
+                    live_context = (
+                        f"Live market data for {live['ticker']}: "
+                        f"Price={live['currency']}{live['price']:.2f}, "
+                        f"Change={'+' if live['change'] >= 0 else ''}{live['change_pct']:.2f}%, "
+                        f"52W High={live['currency']}{live['high_52w']:.2f}, "
+                        f"52W Low={live['currency']}{live['low_52w']:.2f}, "
+                        f"Market Cap={live['currency']}{live['market_cap']/1e9:.1f}B, "
+                        f"P/E={live['pe']:.1f}, Sector={live['sector']}. "
+                    )
 
-        full_prompt = message
-        if context:
-            full_prompt = f"Context: {context}\n\nUser: {message}"
+            full_prompt = message
+            if live_context or context:
+                full_prompt = f"{live_context}{('Context: ' + context) if context else ''}\n\nUser question: {message}"
 
-        result = _gemini_chat(full_prompt)
-        if result:
-            return _clean_json_response(result)
-        return _fallback_chat(message, ticker_from_context)
+            result = _gemini_chat(full_prompt)
+            if result:
+                return _clean_json_response(result)
+
+        # Step 3: Smart rule-based fallback — never redirects user, uses live data
+        return _rule_based_analysis(message, ticker_from_context)
 
     def analyze_ticker(self, ticker: str, market_data: Dict,
                        social_data: Dict, news_data: List[Dict]) -> Dict:
