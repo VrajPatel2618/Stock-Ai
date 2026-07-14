@@ -251,13 +251,13 @@ export default function AIInsights() {
               </div>
               <div>
                 <div className="font-semibold text-sm">StockAI Assistant</div>
-                <div className="text-xs text-gray-500">Powered by Ollama + VADER</div>
+                <div className="text-xs text-gray-500">Powered by Gemini AI + VADER</div>
               </div>
             </div>
             <div className="flex items-center gap-1.5">
               {ollamaStatus === 'online' && (
                 <span className="flex items-center gap-1.5 text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full">
-                  <CheckCircle size={11} /> Ollama Online
+                  <CheckCircle size={11} /> Gemini Online
                 </span>
               )}
               {ollamaStatus === 'offline' && (

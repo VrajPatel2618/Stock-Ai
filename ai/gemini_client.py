@@ -187,6 +187,19 @@ def _clean_json_response(content: str) -> str:
         return content
 
 
+# Common English words to skip when detecting stock tickers
+_SKIP_WORDS = {
+    'WHAT', 'IS', 'THE', 'OF', 'ARE', 'HOW', 'MUCH', 'PRICE', 'CURRENT',
+    'FOR', 'ME', 'GIVE', 'GET', 'TELL', 'ABOUT', 'CAN', 'YOU', 'SHOW',
+    'ANY', 'AND', 'OR', 'NOT', 'BUT', 'ON', 'IN', 'AT', 'TO', 'DO', 'MY',
+    'WE', 'UP', 'OUT', 'IF', 'ALL', 'SO', 'AS', 'IT', 'ITS', 'BE', 'BY',
+    'AN', 'HE', 'SHE', 'US', 'NO', 'GO', 'NOW', 'NEW', 'TOP', 'WAY',
+    'WHO', 'WHY', 'WHEN', 'WHERE', 'WILL', 'WITH', 'FROM', 'INTO', 'MORE',
+    'STOCK', 'SHARE', 'TRADE', 'VALUE', 'WORTH', 'QUOTE', 'COST', 'BUY',
+    'SELL', 'HOLD', 'LIVE', 'REAL', 'TODAY', 'LAST', 'NEXT', 'HIGH', 'LOW',
+}
+
+
 def _is_price_query(message: str) -> Optional[str]:
     """Detect price queries and extract ticker. Returns ticker or None."""
     import re
@@ -195,9 +208,19 @@ def _is_price_query(message: str) -> Optional[str]:
                    "how much", "worth", "value", "quote", "cost"]
     if not any(w in msg for w in price_words):
         return None
-    match = re.search(r'\$([A-Z]{1,5})|([A-Z]{1,5}\.[A-Z]{2})|([A-Z]{2,5})\b', message.upper())
+    # Priority 1: $TICKER pattern (e.g. $AAPL)
+    match = re.search(r'\$([A-Z]{1,5})', message.upper())
     if match:
-        return match.group(1) or match.group(2) or match.group(3)
+        return match.group(1)
+    # Priority 2: TICKER.XX pattern (e.g. RELIANCE.NS)
+    match = re.search(r'\b([A-Z]{1,5}\.[A-Z]{2})\b', message.upper())
+    if match:
+        return match.group(1)
+    # Priority 3: Standalone uppercase word that looks like a ticker
+    candidates = re.findall(r'\b([A-Z]{2,5})\b', message.upper())
+    for c in candidates:
+        if c not in _SKIP_WORDS:
+            return c
     return None
 
 
