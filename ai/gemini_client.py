@@ -9,13 +9,17 @@ import os
 import requests as _requests
 from datetime import datetime
 from typing import Dict, List, Optional
+import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+GEMINI_MODEL   = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+
+# Configure SDK once at import time
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 # Conversational system prompt — explicitly forbids raw JSON in chat
 SYSTEM_PROMPT = """You are StockAI, a professional stock market analyst assistant built into a trading platform.
@@ -34,34 +38,27 @@ Keep responses under 200 words unless a detailed breakdown is requested."""
 
 
 def _gemini_chat(prompt: str, system: str = SYSTEM_PROMPT) -> Optional[str]:
-    """Call Gemini API and return text response."""
+    """Call Gemini API using the official SDK and return text response."""
     if not GEMINI_API_KEY:
+        print("⚠ GEMINI_API_KEY not set")
         return None
     try:
-        payload = {
-            "system_instruction": {"parts": [{"text": system}]},
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": 0.7,
-                "maxOutputTokens": 512,
-            },
-        }
-        r = _requests.post(
-            f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
-            json=payload,
-            timeout=30,
+        model = genai.GenerativeModel(
+            model_name=GEMINI_MODEL,
+            system_instruction=system,
+            generation_config=genai.GenerationConfig(
+                temperature=0.7,
+                max_output_tokens=512,
+            ),
         )
-        if r.status_code == 200:
-            data = r.json()
-            return (
-                data.get("candidates", [{}])[0]
-                .get("content", {})
-                .get("parts", [{}])[0]
-                .get("text", "")
-            )
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+        print(f"✓ Gemini responded ({len(text)} chars)")
+        return text
+    except Exception as e:
+        print(f"✗ Gemini API error: {e}")
         return None
-    except Exception:
-        return None
+
 
 
 def _is_gemini_available() -> bool:
