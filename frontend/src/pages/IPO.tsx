@@ -169,7 +169,7 @@ export default function IPOPage() {
               value={showLimit}
               onChange={e => setShowLimit(Number(e.target.value))}
               className="text-xs bg-white/5 border border-white/10 text-gray-300 rounded-lg px-2 py-1 hover:border-white/20 transition-all cursor-pointer"
-              style={{ backgroundColor: '#1a1f2e' }}
+              style={{ backgroundColor: '#1a1f2e', colorScheme: 'dark' }}
             >
               <option value={5}  style={{ backgroundColor: '#1a1f2e' }}>Top 5</option>
               <option value={10} style={{ backgroundColor: '#1a1f2e' }}>Top 10</option>

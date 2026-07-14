@@ -109,7 +109,7 @@ export default function Portfolio() {
       <form onSubmit={trade} className="card space-y-4">
         <h3 className="font-semibold">Paper Trade Simulator</h3>
         {error && <div className="text-red-400 text-sm bg-red-500/10 px-3 py-2 rounded-lg">{error}</div>}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 relative z-50">
           <div className="relative z-50">
             <label className="text-xs text-gray-400 mb-1 block">Ticker</label>
             <StockSearchAutocomplete
@@ -121,7 +121,7 @@ export default function Portfolio() {
           </div>
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Action</label>
-            <select className="input-field" value={form.action} onChange={(e) => setForm({ ...form, action: e.target.value })}>
+            <select className="input-field" value={form.action} onChange={(e) => setForm({ ...form, action: e.target.value })} style={{ colorScheme: 'dark' }}>
               <option value="BUY" className="bg-gray-900 text-white">BUY</option>
               <option value="SELL" className="bg-gray-900 text-white">SELL</option>
             </select>
