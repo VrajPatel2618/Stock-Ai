@@ -841,7 +841,7 @@ def chat(request):
     if not message:
         return Response({'error': 'Message required'}, status=400)
     try:
-        from ai.ollama_client import get_ollama_analyzer
+        from ai.gemini_client import get_ollama_analyzer
         analyzer = get_ollama_analyzer()
         context = f"ticker: {ticker.upper()}" if ticker else None
         reply = analyzer.chat(message, context=context)

@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Any
 import json
 
 from ai.sentiment_analyzer import SentimentAnalyzer
-from ai.ollama_client import OllamaAnalyzer
+from ai.gemini_client import OllamaAnalyzer
 
 
 class IntelligenceAggregator:

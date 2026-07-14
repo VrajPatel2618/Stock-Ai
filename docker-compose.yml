@@ -13,12 +13,10 @@ services:
     environment:
       - DEBUG=True
       - REDIS_URL=redis://redis:6379/1
-      - OLLAMA_HOST=${OLLAMA_HOST:-http://ollama:11434}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
     depends_on:
       - redis
-      - ollama
-    # Using host network mode for Ollama if running locally is sometimes easier, 
-    # but host.docker.internal works for Windows/Mac to reach host's Ollama.
 
   frontend:
     build:
@@ -43,14 +41,5 @@ services:
     volumes:
       - redis_data:/data
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: stockai_ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-
 volumes:
   redis_data:
-  ollama_data:
